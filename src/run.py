@@ -13,6 +13,7 @@ from openhands.sdk import LLM, Agent, Conversation, Tool
 from openhands.sdk.tool import register_tool
 
 from tool import GameTool
+from game_visualizer import GameVisualizer
 
 # Register the custom tool
 register_tool("GameTool", GameTool)
@@ -30,7 +31,11 @@ agent = Agent(
 )
 
 cwd = str(Path(__file__).parent.parent)
-conversation = Conversation(agent=agent, workspace=cwd)
+conversation = Conversation(
+    agent=agent,
+    workspace=cwd,
+    visualizer=GameVisualizer,
+)
 
 conversation.send_message(
     "You are playing Pure Adventure, a text adventure game — a mystery set in the town of Error.\n\n"
