@@ -52,6 +52,21 @@ _SECTION_HEADERS = [
 _LOC_OPT_RE = re.compile(r"^  (\d+) (.+)$")
 _DLG_OPT_RE = re.compile(r"^  (\d+)\. (.+)$")
 _OPTIONS_HEADER_RE = re.compile(r"^Options:$")
+_CHOICE_LINE_RE = re.compile(r"^  (\d+)(?:\.\s+|\s+)(.+)$")
+
+
+def _parse_choice_map(text: str) -> dict[int, str]:
+    """Build a flat {choice_num: label} map from an observation string.
+
+    Catches both location-style ("  N Label") and dialogue-style
+    ("  N. Label") numberings so we can resolve raw choices later.
+    """
+    mapping: dict[int, str] = {}
+    for line in text.split("\n"):
+        m = _CHOICE_LINE_RE.match(line)
+        if m:
+            mapping[int(m.group(1))] = m.group(2).strip()
+    return mapping
 
 
 def _parse_game_text(
@@ -161,7 +176,10 @@ def _make_option_table(
 
 # ── Action display ─────────────────────────────────────────────────────
 
-def _format_action_detail(event: ActionEvent) -> Table:
+def _format_action_detail(
+    event: ActionEvent,
+    choice_map: dict[int, str] | None = None,
+) -> Table:
     """Format the action as a clean key-value table."""
     action = event.action
     data = action.model_dump()
@@ -181,7 +199,18 @@ def _format_action_detail(event: ActionEvent) -> Table:
             continue
         label = key.replace("_", " ").title()
         if isinstance(value, list):
-            display = ", ".join(str(v) for v in value)
+            # Resolve choices against the last observation's option map
+            if key == "choices" and choice_map:
+                resolved = []
+                for v in value:
+                    label_text = choice_map.get(int(v))
+                    if label_text:
+                        resolved.append(f"{v} → {label_text}")
+                    else:
+                        resolved.append(str(v))
+                display = ", ".join(resolved)
+            else:
+                display = ", ".join(str(v) for v in value)
         elif isinstance(value, dict):
             display = ", ".join(f"{k}={v}" for k, v in value.items())
         else:
@@ -210,7 +239,10 @@ def _section_panel(
 
 # ── Panel builders ──────────────────────────────────────────────────────
 
-def _build_thought_panel(event: ActionEvent) -> Panel | None:
+def _build_thought_panel(
+    event: ActionEvent,
+    choice_map: dict[int, str] | None = None,
+) -> Panel | None:
     """Build the agent reasoning + action panel.
 
     Returns None if there is nothing to show (no thought, no action).
@@ -242,7 +274,7 @@ def _build_thought_panel(event: ActionEvent) -> Panel | None:
         action_name = event.action.__class__.__name__
         parts.append(Text(f"⚡ {action_name}", style=f"bold {C['accent2']}"))
         parts.append(Text())
-        parts.append(_format_action_detail(event))
+        parts.append(_format_action_detail(event, choice_map))
 
     return Panel(
         Group(*parts),
@@ -346,14 +378,18 @@ class GameVisualizer(ConversationVisualizerBase):
     """
 
     _console: Console
+    _last_choice_map: dict[int, str]
 
     def __init__(self):
         super().__init__()
         self._console = _create_console()
+        self._last_choice_map = {}
 
     def on_event(self, event: Event) -> None:
         if isinstance(event, ObservationEvent):
             if event.tool_name == "game":
+                # Snapshot the option map so the next action can resolve
+                self._last_choice_map = _parse_choice_map(event.observation.text)
                 self._console.print(
                     _build_observation_panel(event.observation.text)
                 )
@@ -371,7 +407,7 @@ class GameVisualizer(ConversationVisualizerBase):
                 self._console.print()
 
         elif isinstance(event, ActionEvent):
-            panel = _build_thought_panel(event)
+            panel = _build_thought_panel(event, self._last_choice_map)
             if panel:
                 self._print_turn_separator()
                 self._console.print(panel)
