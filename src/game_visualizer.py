@@ -2,6 +2,7 @@
 import re
 
 from rich.box import HEAVY, HEAVY_EDGE, MINIMAL, ROUNDED
+from rich.columns import Columns
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.rule import Rule
@@ -30,7 +31,6 @@ def _create_console() -> Console:
 C = {
     "accent": "cyan",
     "accent2": "bright_cyan",
-    "heading": "bold bright_white",
     "dim": "bright_black",
     "thought": "bright_magenta",
     "reasoning": "italic bright_blue",
@@ -38,9 +38,6 @@ C = {
     "party": "cyan",
     "npc": "yellow",
     "dialogue": "magenta",
-    "action_call": "bold yellow",
-    "result_prefix": "bold green",
-    "error": "bold red",
     "game_over": "bold red",
 }
 
@@ -164,12 +161,10 @@ def _make_option_table(
 
 # ── Action display ─────────────────────────────────────────────────────
 
-def _format_action_detail(event: ActionEvent) -> Table | Text:
-    """Format the action as a clean key-value table instead of raw dump."""
+def _format_action_detail(event: ActionEvent) -> Table:
+    """Format the action as a clean key-value table."""
     action = event.action
     data = action.model_dump()
-
-    # Remove internal/irrelevant fields
     data.pop("kind", None)
 
     table = Table(
@@ -196,14 +191,40 @@ def _format_action_detail(event: ActionEvent) -> Table | Text:
     return table
 
 
+# ── Mini section panels (used in rows below) ────────────────────────────
+
+def _section_panel(
+    title: str,
+    icon: str,
+    color: str,
+    options: list[tuple[str, str]],
+) -> Panel:
+    return Panel(
+        _make_option_table(options, color, "bold white"),
+        title=f"[bold {color}]{icon} {title}",
+        border_style=color,
+        box=HEAVY_EDGE,
+        padding=(0, 1),
+    )
+
+
 # ── Panel builders ──────────────────────────────────────────────────────
 
-def _build_thought_panel(event: ActionEvent) -> Panel:
-    """Build the agent reasoning + action panel."""
+def _build_thought_panel(event: ActionEvent) -> Panel | None:
+    """Build the agent reasoning + action panel.
+
+    Returns None if there is nothing to show (no thought, no action).
+    """
+    thought_text = " ".join(t.text for t in event.thought) if event.thought else ""
+    has_thought = bool(thought_text or event.reasoning_content)
+    has_action = event.action is not None
+
+    if not has_thought and not has_action:
+        return None
+
     parts: list[Text | Panel | Rule] = []
 
-    # Thought/reasoning section
-    thought_text = " ".join(t.text for t in event.thought) if event.thought else ""
+    # Thought section
     if thought_text:
         parts.append(Text(thought_text, style=C["thought"]))
 
@@ -213,20 +234,18 @@ def _build_thought_panel(event: ActionEvent) -> Panel:
         parts.append(Rule(style=C["dim"]))
         parts.append(Text(event.reasoning_content, style=C["reasoning"]))
 
-    # Action call details — custom clean formatting
-    if event.action:
-        parts.append(Text())
-        parts.append(Rule(style=C["dim"]))
-        # Action type header
+    # Action section — always show if action exists, even without thought
+    if has_action:
+        if parts:
+            parts.append(Text())
+            parts.append(Rule(style=C["dim"]))
         action_name = event.action.__class__.__name__
         parts.append(Text(f"⚡ {action_name}", style=f"bold {C['accent2']}"))
         parts.append(Text())
         parts.append(_format_action_detail(event))
 
-    inner = Group(*parts) if parts else Text("(no reasoning logged)")
-
     return Panel(
-        inner,
+        Group(*parts),
         title="[bold bright_magenta]🔍 Agent Reasoning",
         border_style="bright_magenta",
         box=ROUNDED,
@@ -245,13 +264,13 @@ def _build_observation_panel(text: str) -> Panel:
         dialogue_msg,
     ) = _parse_game_text(text)
 
-    inner_parts: list[Text | Panel | Table] = []
+    inner_parts: list[Text | Panel | Columns] = []
 
     # ── Description ──────────────────────────────────────────────────────
     if desc_text:
         inner_parts.append(desc_text)
 
-    # ── Dialogue message ─────────────────────────────────────────────────
+    # ── Dialogue message (narrative, not options) ────────────────────────
     if dialogue_msg:
         inner_parts.append(Text())
         inner_parts.append(
@@ -264,71 +283,46 @@ def _build_observation_panel(text: str) -> Panel:
             )
         )
 
-    # ── Section: Travel destinations ─────────────────────────────────────
+    # ── Option sections in a row ─────────────────────────────────────────
+    option_panels: list[Panel] = []
     if travel_opts:
-        inner_parts.append(Text())
-        inner_parts.append(
-            Panel(
-                _make_option_table(travel_opts, C["travel"], "bold white"),
-                title=f"[bold green]🗺 Travel",
-                border_style=C["travel"],
-                box=HEAVY_EDGE,
-                padding=(0, 1),
-                expand=False,
-            )
+        option_panels.append(
+            _section_panel("Travel", "🗺", C["travel"], travel_opts)
         )
-
-    # ── Section: Party members ───────────────────────────────────────────
     if party_opts:
-        inner_parts.append(Text())
-        inner_parts.append(
-            Panel(
-                _make_option_table(party_opts, C["party"], "bold white"),
-                title=f"[bold cyan]👥 Party",
-                border_style=C["party"],
-                box=HEAVY_EDGE,
-                padding=(0, 1),
-                expand=False,
-            )
+        option_panels.append(
+            _section_panel("Party", "👥", C["party"], party_opts)
         )
-
-    # ── Section: NPCs at location ────────────────────────────────────────
     if npc_opts:
-        inner_parts.append(Text())
-        inner_parts.append(
-            Panel(
-                _make_option_table(npc_opts, C["npc"], "bold white"),
-                title=f"[bold yellow]👤 Characters",
-                border_style=C["npc"],
-                box=HEAVY_EDGE,
-                padding=(0, 1),
-                expand=False,
-            )
+        option_panels.append(
+            _section_panel("Characters", "👤", C["npc"], npc_opts)
         )
 
-    # ── Section: Dialogue options ────────────────────────────────────────
+    if option_panels:
+        inner_parts.append(Text())
+        inner_parts.append(
+            Columns(option_panels, equal=True, expand=True)
+        )
+
+    # ── Dialogue choice options ──────────────────────────────────────────
     if dialogue_opts:
         inner_parts.append(Text())
         inner_parts.append(
             Panel(
-                _make_option_table(
-                    dialogue_opts, C["dialogue"], "bold white"
-                ),
-                title=f"[bold magenta]💬 Choose Response",
+                _make_option_table(dialogue_opts, C["dialogue"], "bold white"),
+                title="[bold magenta]💬 Choose Response",
                 border_style=C["dialogue"],
                 box=HEAVY_EDGE,
                 padding=(0, 1),
-                expand=False,
             )
         )
 
-    # Nothing parsed? Show raw text as fallback
+    # Fallback
     if not inner_parts and text.strip():
         inner_parts.append(Text(text.strip()))
 
     inner = Group(*inner_parts) if inner_parts else Text("(empty)")
 
-    # Check for game over
     subtitle = None
     if "Game Over." in text:
         subtitle = f"[{C['game_over']}]💀 GAME OVER[/{C['game_over']}]"
@@ -377,11 +371,11 @@ class GameVisualizer(ConversationVisualizerBase):
                 self._console.print()
 
         elif isinstance(event, ActionEvent):
-            # Always render a clean action → result pair.
-            # The action panel shows what the AI was thinking + what it chose.
-            self._print_turn_separator()
-            self._console.print(_build_thought_panel(event))
-            self._console.print()
+            panel = _build_thought_panel(event)
+            if panel:
+                self._print_turn_separator()
+                self._console.print(panel)
+                self._console.print()
 
         elif isinstance(event, MessageEvent):
             if event.source == "user":
@@ -402,7 +396,6 @@ class GameVisualizer(ConversationVisualizerBase):
                 self._console.print()
 
     def _print_turn_separator(self) -> None:
-        """Print a subtle divider between game turns."""
         self._console.print(
             Panel(
                 Text("", style=C["dim"]),
