@@ -1,0 +1,67 @@
+cabal-version:      3.0
+name:               adventure-game
+version:            0.1.0.0
+synopsis:           Coursework for Programming 1 - Adventure Game
+description:        You will travel between different locations, where you will meet different characters. You will be able to talk to them, both individually and to multiple characters at the same time to create interactions between them. Some will join your party, so you can take them to other locations, where they can interact with other characters.
+license:            MIT
+license-file:       LICENSE
+author:             Gabriel Werneck
+maintainer:         gwp29@bath.ac.uk
+category:           Game
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+
+common warnings
+    ghc-options: -Wall
+
+library
+    hs-source-dirs:   src
+    exposed-modules:
+          Dialogue
+        , GameData
+        , GameLoop
+        , GameWorld
+        , Solver
+        , Types
+        , Utils
+    build-depends:
+        base >=4.14 && <5
+    default-language: Haskell2010
+    ghc-options: -Wall
+
+executable adventure-game
+    import:           warnings
+    hs-source-dirs:   src
+    main-is:          Main.hs
+
+    other-modules:
+        Dialogue
+        GameData
+        GameLoop
+        GameWorld
+        Solver
+        Types
+        Utils
+
+    build-depends:
+        base >=4.14 && <5,
+        adventure-game
+
+    default-language: Haskell2010
+
+
+test-suite adventure-game-test
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  other-modules:
+      GameWorldSpec, DialogueSpec, TestUtils, GameLoopSpec, SolverSpec
+  build-tool-depends:
+      hspec-discover:hspec-discover
+
+  build-depends:
+      base,
+      hspec,
+      adventure-game
+
+  default-language: Haskell2010
