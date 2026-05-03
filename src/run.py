@@ -18,7 +18,7 @@ from tool import GameTool
 register_tool("GameTool", GameTool)
 
 llm = LLM(
-    model="deepseek/deepseek-chat",
+    model=os.getenv("LLM_MODEL", "deepseek/deepseek-chat"),
     api_key=os.getenv("LLM_API_KEY"),
     reasoning_effort=None,
     extended_thinking_budget=None,

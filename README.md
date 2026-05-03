@@ -1,4 +1,4 @@
-# Pure Adventure — Agentic Play
+# Pure Adventure — Agentic
 
 An AI agent that plays through the **Pure Adventure** text-based mystery game,
 built with the [OpenHands SDK](https://docs.openhands.dev/).
@@ -6,15 +6,15 @@ built with the [OpenHands SDK](https://docs.openhands.dev/).
 ## Background
 
 This project is a **Python rewrite** of a university coursework project
-originally written in Haskell for a functional programming course.
+originally written in Haskell at the **University of Bath** for a functional
+programming course.
 
 ### The Original
 
 The [`original-haskell/`](original-haskell/) directory contains the Haskell
-source. It was coursework for a functional programming class, with a BFS
-solver that could play through the game autonomously. The Haskell
-implementation is structured as a mirror of the university's required
-architecture.
+source as submitted for coursework. It included a BFS solver that could play
+through the game autonomously — the functional programming counterpart to
+this LLM agent.
 
 ### The Python Rewrite
 
@@ -52,8 +52,9 @@ The Python version (`src/`) was built from scratch to:
 ## Setup
 
 ```bash
-# Create a .env file with your LLM provider API key:
+# Create a .env file with your LLM provider:
 echo "LLM_API_KEY=sk-…" > .env
+echo "LLM_MODEL=deepseek/deepseek-chat" >> .env    # or any OpenHands-compatible model
 
 # Install dependencies
 pip install -r requirements.txt
@@ -66,9 +67,6 @@ python src/run.py
 The agent will play through the game autonomously, choosing where to
 travel, who to talk to, and figuring out the win condition.
 
-> **Note:** `.env` is in `.gitignore` and will not be committed. If you
-> previously committed an API key by accident, use `git filter-repo` or
-> similar to scrub it from history.
 
 ## Game
 
