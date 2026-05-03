@@ -76,6 +76,14 @@ talks to characters, recruits party members, and uncovers a plot that
 requires assembling a team of logicians. The game is driven entirely by
 a dialogue tree written in a custom DSL embedded in `engine.py`.
 
+## Demo
+
+[![Pure Adventure — DeepSeek playing](demo-deepseek.mov)](demo-deepseek.mov)
+
+A screen recording of **DeepSeek** (via OpenHands SDK) playing through the game
+autonomously — exploring locations, talking to characters, and solving the
+mystery.
+
 ## License
 
 AGPL-3.0 — see [`LICENSE`](LICENSE). The original Haskell coursework
