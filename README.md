@@ -80,5 +80,5 @@ a dialogue tree written in a custom DSL embedded in `engine.py`.
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE). The original Haskell coursework retains
-whatever license it was submitted under.
+AGPL-3.0 — see [`LICENSE`](LICENSE). The original Haskell coursework
+retains whatever license it was submitted under.
