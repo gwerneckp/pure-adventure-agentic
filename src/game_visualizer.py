@@ -1,11 +1,10 @@
 """Custom game visualizer with a high-tech terminal UI for Pure Adventure."""
 import re
 
-from rich.box import HEAVY, HEAVY_EDGE, ROUNDED, SQUARE, MINIMAL
+from rich.box import HEAVY, HEAVY_EDGE, MINIMAL, ROUNDED
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.rule import Rule
-from rich.style import Style
 from rich.table import Table
 from rich.text import Text
 
@@ -163,24 +162,38 @@ def _make_option_table(
     return table
 
 
-# ── Action details helper ───────────────────────────────────────────────
+# ── Action display ─────────────────────────────────────────────────────
 
-def _format_action_summary(event: ActionEvent) -> Text:
-    """Return a compact one-liner describing what the AI decided to do."""
-    t = Text()
-    if event.tool_name == "game" and event.action:
-        # Try to get the action_type and choices for game tool
-        action_data = event.action.model_dump()
-        atype = action_data.get("action_type", event.tool_name)
-        choices = action_data.get("choices", None)
-        t.append(f"▶ {atype}", style=f"bold {C['travel']}")
-        if choices:
-            t.append(f" [{', '.join(str(c) for c in choices)}]", style="bold white")
-    else:
-        t.append(f"▶ {event.tool_name}", style=f"bold {C['accent']}")
-        if event.summary:
-            t.append(f"  {event.summary}", style=C["dim"])
-    return t
+def _format_action_detail(event: ActionEvent) -> Table | Text:
+    """Format the action as a clean key-value table instead of raw dump."""
+    action = event.action
+    data = action.model_dump()
+
+    # Remove internal/irrelevant fields
+    data.pop("kind", None)
+
+    table = Table(
+        show_header=False,
+        box=None,
+        padding=(0, 2),
+        collapse_padding=True,
+    )
+    table.add_column("Key", style=f"bold {C['accent2']}", width=14, no_wrap=True)
+    table.add_column("Value", style="bold white")
+
+    for key, value in data.items():
+        if value is None or value == [] or value == {}:
+            continue
+        label = key.replace("_", " ").title()
+        if isinstance(value, list):
+            display = ", ".join(str(v) for v in value)
+        elif isinstance(value, dict):
+            display = ", ".join(f"{k}={v}" for k, v in value.items())
+        else:
+            display = str(value)
+        table.add_row(label, display)
+
+    return table
 
 
 # ── Panel builders ──────────────────────────────────────────────────────
@@ -200,12 +213,15 @@ def _build_thought_panel(event: ActionEvent) -> Panel:
         parts.append(Rule(style=C["dim"]))
         parts.append(Text(event.reasoning_content, style=C["reasoning"]))
 
-    # Action call details
+    # Action call details — custom clean formatting
     if event.action:
         parts.append(Text())
         parts.append(Rule(style=C["dim"]))
-        action_viz = event.action.visualize
-        parts.append(action_viz)
+        # Action type header
+        action_name = event.action.__class__.__name__
+        parts.append(Text(f"⚡ {action_name}", style=f"bold {C['accent2']}"))
+        parts.append(Text())
+        parts.append(_format_action_detail(event))
 
     inner = Group(*parts) if parts else Text("(no reasoning logged)")
 
@@ -324,21 +340,6 @@ def _build_observation_panel(text: str) -> Panel:
         border_style=C["accent"],
         box=HEAVY,
         padding=(1, 2),
-    )
-
-
-# ── Turn separator ──────────────────────────────────────────────────────
-
-def _print_turn_separator(console: Console) -> None:
-    """Print a subtle separator between game turns."""
-    console.print(
-        Panel(
-            Text("", style=C["dim"]),
-            box=MINIMAL,
-            padding=(0, 0),
-            border_style=C["dim"],
-            height=1,
-        )
     )
 
 
