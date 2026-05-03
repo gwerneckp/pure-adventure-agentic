@@ -1,8 +1,13 @@
 from pathlib import Path
 import sys
+import os
+from dotenv import load_dotenv
 
 # Add src directory to path so imports work
 sys.path.insert(0, str(Path(__file__).parent))
+
+# Load .env from project root
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 from openhands.sdk import LLM, Agent, Conversation, Tool
 from openhands.sdk.tool import register_tool
@@ -14,7 +19,7 @@ register_tool("GameTool", GameTool)
 
 llm = LLM(
     model="deepseek/deepseek-chat",
-    api_key="sk-REPLACED_IN_HISTORY",
+    api_key=os.getenv("LLM_API_KEY"),
     reasoning_effort=None,
     extended_thinking_budget=None,
 )
@@ -46,7 +51,9 @@ conversation.send_message(
     "• game(action_type='choice', choices=[N]) — Pick any number shown in the output.\n"
     "  You can pick MULTIPLE numbers to talk to multiple people at once!\n"
     "  Example: choices=[4, 5] talks to both #4 and #5 together.\n"
-    "• game(action_type='status') — Detailed game state.\n\n"
+    "• game(action_type='status') — Detailed game state.\n"
+    "• game(action_type='reset') — Restart the game.\n"
+    "• game(action_type='quit') — Exit the game.\n\n"
     "Think step by step. Some dialogues loop or have dead ends — try different options.\n\n"
     "⚠️ IMPORTANT: This game is still in development. If you discover a bug — "
     "something clearly broken that stops you from proceeding — report it by calling "

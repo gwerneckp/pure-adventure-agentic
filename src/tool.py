@@ -79,16 +79,6 @@ class GameExecutor(ToolExecutor):
         if self.game is None:
             return GameObservation.from_text("Game Over.", game_over=True)
 
-        # View-only actions
-        if atype == "look":
-            self.current_dialogue = None
-            return GameObservation.from_text(describe_location(self.game))
-
-        if atype == "inventory":
-            if self.game.party:
-                return GameObservation.from_text("Party members:\n- " + "\n- ".join(self.game.party))
-            return GameObservation.from_text("Your party is empty.")
-
         if atype == "status":
             conn = connected(self.game.m, self.game.loc)
             loc_names = ", ".join(LOCATIONS[n] for n in conn)
@@ -104,7 +94,7 @@ class GameExecutor(ToolExecutor):
 
         # Unified choice action — handles travel, talk, AND dialogue
         # Just pick the number shown in the output and it does the right thing
-        if atype in ("choice", "travel", "talk", "dialogue"):
+        if atype == "choice":
             choices = action.choices or []
 
             if self.current_dialogue is not None and choices:
@@ -166,9 +156,9 @@ class GameTool(ToolDefinition[GameAction, GameObservation]):
             cls(
                 description=(
                     "Play the Pure Adventure text game. "
-                    "Just use action_type='choice' with choices=[N] where N is any number shown in the game output. "
-                    "The game automatically handles travel, talking to NPCs, or dialogue responses based on what you pick. "
-                    "Also available: 'status' (detailed state), 'reset' (restart), 'quit' (exit)."
+                    "Use action_type='choice' with choices=[N] where N is any number shown in the output. "
+                    "The game handles travel, talking, and dialogue via choices. "
+                    "Also: 'status' (detailed state), 'reset' (restart), 'quit' (exit)."
                 ),
                 action_type=GameAction,
                 observation_type=GameObservation,
